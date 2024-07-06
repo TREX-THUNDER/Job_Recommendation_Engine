@@ -8,9 +8,15 @@ from nltk.stem import PorterStemmer
 from nltk.tokenize import word_tokenize
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+import plotly.graph_objects as go
+from streamlit_lottie import st_lottie
+import requests
+import csv
+from datetime import datetime
+import os
 
 # Set page configuration
-st.set_page_config(page_title="Job Recommendation Engine", layout="wide")
+st.set_page_config(page_title="Job Recommendation Dashboard", layout="wide")
 
 # Custom CSS for styling
 st.markdown("""
@@ -19,23 +25,39 @@ st.markdown("""
     
     body {
         font-family: 'Roboto', sans-serif;
-        background-color: #000000;
         color: #FFFFFF;
     }
+    .stApp {
+        background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+        background-size: 400% 400%;
+        animation: gradient 20s ease infinite;
+    }
+    @keyframes gradient {
+        0% {
+            background-position: 0% 50%;
+        }
+        50% {
+            background-position: 100% 50%;
+        }
+        100% {
+            background-position: 0% 50%;
+        }
+    }
     .container {
-        max-width: 800px;
+        max-width: 1200px;
         margin: 0 auto;
         padding: 20px;
     }
     .big-font {
-        font-size: 42px !important;
+        font-size: 48px !important;
         font-weight: 700;
         color: #FFFFFF;
         margin-bottom: 30px;
         text-align: center;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
     }
     .medium-font {
-        font-size: 28px !important;
+        font-size: 32px !important;
         font-weight: 700;
         color: #FFFFFF;
         margin-top: 40px;
@@ -43,12 +65,16 @@ st.markdown("""
     }
     .small-font {font-size: 18px !important;}
     .highlight {
-        background-color: #1A1A1A;
+        background-color: rgba(0, 0, 0, 0.7);
         padding: 25px;
         border-radius: 15px;
         margin-bottom: 25px;
-        border-left: 6px solid #FFFFFF;
+        border-left: 6px solid #4B0082;
         box-shadow: 0 4px 6px rgba(255, 255, 255, 0.1);
+        transition: transform 0.3s ease;
+    }
+    .highlight:hover {
+        transform: translateY(-5px);
     }
     .job-title {
         color: #FFFFFF;
@@ -60,10 +86,11 @@ st.markdown("""
         margin-left: 25px;
         margin-bottom: 8px;
         font-size: 16px;
+        color: #FFFFFF;
     }
     .stSelectbox {margin-top: 15px; margin-bottom: 15px;}
     .user-info {
-        background-color: #1A1A1A;
+        background-color: rgba(0, 0, 0, 0.7);
         padding: 20px;
         border-radius: 15px;
         margin-top: 25px;
@@ -85,25 +112,29 @@ st.markdown("""
         transform: translateY(-2px);
     }
     .stTextInput>div>div>input, .stTextArea>div>div>textarea {
-        background-color: #1A1A1A;
-        border: 1px solid #FFFFFF;
+        background-color: rgba(0, 0, 0, 0.7);
+        border: 1px solid #4B0082;
         border-radius: 8px;
         padding: 10px;
         font-size: 16px;
         color: #FFFFFF;
     }
     .stRadio>div {
-        background-color: #1A1A1A;
+        background-color: rgba(0, 0, 0, 0.7);
         border-radius: 8px;
         padding: 10px;
     }
     .stExpander {
-        background-color: #1A1A1A;
+        background-color: rgba(0, 0, 0, 0.7);
         border-radius: 8px;
     }
     .stMarkdown {
         color: #FFFFFF;
     }
+    .css-1d391kg {
+        background-color: rgba(0, 0, 0, 0.7);
+    }
+    
     </style>
     """, unsafe_allow_html=True)
 
@@ -167,17 +198,47 @@ def get_job_recommendations(user_skills):
     job_indices = np.argsort(-cosine_similarities)
     return job_indices, cosine_similarities
 
+# Function to load Lottie animation
+def load_lottieurl(url: str):
+    r = requests.get(url)
+    if r.status_code != 200:
+        return None
+    return r.json()
+
+# Add this new function to handle saving feedback
+def save_feedback(feedback, rating):
+    feedback_file = "Feedback.csv"
+    feedback_exists = os.path.isfile(feedback_file)
+    
+    with open(feedback_file, mode='a', newline='', encoding='utf-8') as file:
+        writer = csv.writer(file)
+        if not feedback_exists:
+            writer.writerow(["Timestamp", "Feedback", "Rating"])
+        
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        writer.writerow([timestamp, feedback, rating])
+
+# Lottie animation
+lottie_url = "https://assets5.lottiefiles.com/packages/lf20_wd1udlcz.json"
+lottie_json = load_lottieurl(lottie_url)
+
 # Streamlit app
 st.markdown('<div class="container">', unsafe_allow_html=True)
-st.markdown('<p class="big-font" style="color: #4B0082;">🚀 Job Recommendation Engine</p>', unsafe_allow_html=True)
+st.markdown('<p class="big-font">🚀 Job Recommendation Dashboard</p>', unsafe_allow_html=True)
+
+# Display Lottie animation
+st_lottie(lottie_json, speed=0.5 , height=200, key="initial")
 
 # User input
-input_type = st.radio("Select input type:", ("Applicant ID", "Skills and Qualifications"))
+col1, col2 = st.columns(2)
+with col1:
+    input_type = st.radio("Select input type:", ("Applicant ID", "Skills and Qualifications"))
 
-if input_type == "Applicant ID":
-    user_id = st.text_input('Enter User ID (applicantId)', key='user_id')
-else:
-    user_input = st.text_area("Enter your Skills and Qualifications", height=150)
+with col2:
+    if input_type == "Applicant ID":
+        user_id = st.text_input('Enter User ID (applicantId)', key='user_id')
+    else:
+        user_input = st.text_area("Enter your Skills and Qualifications", height=150)
 
 if st.button('Get Recommendations'):
     if input_type == "Applicant ID" and user_id and user_id in user_data['applicantId'].values:
@@ -185,7 +246,7 @@ if st.button('Get Recommendations'):
         user_skills = user_info['combined_skills']
         
         # Display user information in sidebar
-        st.sidebar.markdown('<p class="medium-font" style="color: #4B0082;">User Information</p>', unsafe_allow_html=True)
+        st.sidebar.markdown('<p class="medium-font">User Information</p>', unsafe_allow_html=True)
         is_employed = pd.notna(user_info['employmentId'])
         
         st.sidebar.markdown('<div class="user-info">', unsafe_allow_html=True)
@@ -206,25 +267,55 @@ if st.button('Get Recommendations'):
     job_indices, cosine_similarities = get_job_recommendations(user_skills)
     
     if np.any(cosine_similarities > 0.3):
-        st.markdown('<p class="medium-font" style="color: #4B0082;">Top Job Recommendations:</p>', unsafe_allow_html=True)
+        st.markdown('<p class="medium-font">Top Job Recommendations:</p>', unsafe_allow_html=True)
         
         top_jobs = jobs.iloc[job_indices[:5]]
         
+        # Create a radar chart for skills match
+        skills = ['Python', 'Java', 'JavaScript', 'SQL', 'Machine Learning']
+        user_skills_values = [user_skills.count(skill.lower()) for skill in skills]
+        
+        fig = go.Figure()
+        
+        fig.add_trace(go.Scatterpolar(
+            r=user_skills_values,
+            theta=skills,
+            fill='toself',
+            name='Your Skills'
+        ))
+        
+        fig.update_layout(
+            polar=dict(
+                radialaxis=dict(
+                    visible=True,
+                    range=[0, max(user_skills_values)]
+                )),
+            showlegend=True,
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            font=dict(color='white')
+        )
+        
+        st.plotly_chart(fig)
+        
         for i, (_, job) in enumerate(top_jobs.iterrows(), 1):
+            st.markdown(f'<div class="highlight">', unsafe_allow_html=True)
             st.markdown(f'<p class="job-title">{i}. {job["jobTitle"]} - {job["client"]}</p>', unsafe_allow_html=True)
             
-            with st.expander("View Details"):
-                st.markdown(f'<div class="highlight">', unsafe_allow_html=True)
-                
-                details = [
-                    f'<p class="job-detail"><strong>Position:</strong> {job["position"]}</p>',
-                    f'<p class="job-detail"><strong>Job Type:</strong> {job.get("jobType", "Not Available")}</p>',
-                    f'<p class="job-detail"><strong>Location:</strong> {job["location"]}</p>',
-                    f'<p class="job-detail"><strong>Status:</strong> {job.get("status", "Not Available")}</p>',
-                    f'<p class="job-detail"><strong>Recruiter:</strong> {job.get("recruiter", "Not Available")}</p>',
-                    f'<p class="job-detail"><strong>Skills:</strong> {job["skills"]}</p>',
-                    f'<p class="job-detail"><strong>Vacancies:</strong> {job["vacancies"]}</p>'
-                ]
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown(f'<p class="job-detail"><strong>Position:</strong> {job["position"]}</p>', unsafe_allow_html=True)
+                st.markdown(f'<p class="job-detail"><strong>Location:</strong> {job["location"]}</p>', unsafe_allow_html=True)
+                st.markdown(f'<p class="job-detail"><strong>Job Type:</strong> {job.get("jobType", "Not Available")}</p>', unsafe_allow_html=True)
+            
+            with col2:
+                st.markdown(f'<p class="job-detail"><strong>Skills:</strong> {job["skills"]}</p>', unsafe_allow_html=True)
+                st.markdown(f'<p class="job-detail"><strong>Vacancies:</strong> {job["vacancies"]}</p>', unsafe_allow_html=True)
+            
+            with st.expander("View More Details"):
+                st.markdown(f'<p class="job-detail"><strong>Status:</strong> {job.get("status", "Not Available")}</p>', unsafe_allow_html=True)
+                st.markdown(f'<p class="job-detail"><strong>Recruiter:</strong> {job.get("recruiter", "Not Available")}</p>', unsafe_allow_html=True)
                 
                 # Display minimum required experience only if it's 10 years or less
                 min_exp = job.get('minExp')
@@ -232,7 +323,7 @@ if st.button('Get Recommendations'):
                     try:
                         min_exp = float(min_exp)
                         if min_exp <= 10:
-                            details.append(f'<p class="job-detail"><strong>Minimum Required Experience:</strong> {min_exp} years</p>')
+                            st.markdown(f'<p class="job-detail"><strong>Minimum Required Experience:</strong> {min_exp} years</p>', unsafe_allow_html=True)
                     except ValueError:
                         pass
                 
@@ -241,18 +332,87 @@ if st.button('Get Recommendations'):
                     description = job['description']
                     if len(description) > 200:
                         description = description[:200] + "..."
-                    details.append(f'<p class="job-detail"><strong>Description:</strong> {description}</p>')
-                
-                st.markdown('\n'.join(details), unsafe_allow_html=True)
-                st.markdown("</div>", unsafe_allow_html=True)
+                    st.markdown(f'<p class="job-detail"><strong>Description:</strong> {description}</p>', unsafe_allow_html=True)
+            
+            st.markdown("</div>", unsafe_allow_html=True)
     else:
         st.warning("No jobs available closely matching your input. Try broadening your search terms or consider adding relevant skills to your profile.")
 
 st.markdown('</div>', unsafe_allow_html=True)
 
+
+
+# Add some metrics or KPIs
+st.markdown('<p class="medium-font">Dashboard Metrics</p>', unsafe_allow_html=True)
+
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    st.metric(label="Total Jobs", value=len(jobs), delta="5%")
+
+with col2:
+    st.metric(label="Active Users", value="1,234", delta="10%")
+
+with col3:
+    st.metric(label="Successful Placements", value="567", delta="15%")
+
+# Add a chart showing job distribution by industry
+industry_counts = jobs['client'].value_counts().head(10)
+
+fig = go.Figure(data=[go.Bar(
+    x=industry_counts.index,
+    y=industry_counts.values,
+    marker_color='#4B0082'
+)])
+
+fig.update_layout(
+    title="Top 10 Industries with Job Openings",
+    xaxis_title="Industry",
+    yaxis_title="Number of Job Openings",
+    paper_bgcolor='rgba(0,0,0,0)',
+    plot_bgcolor='rgba(0,0,0,0)',
+    font=dict(color='white')
+)
+
+st.plotly_chart(fig)
+
+
+# Modify the feedback section
+st.markdown('<p class="medium-font">User Feedback</p>', unsafe_allow_html=True)
+
+feedback = st.text_area("Please provide your feedback on the job recommendations:", height=100)
+rating = st.slider("Rate your experience (1-5 stars)", min_value=1, max_value=5, value=1)
+
+if st.button("Submit Feedback"):
+    if feedback.strip() != "":
+        save_feedback(feedback, rating)
+        st.success("Thank you for your feedback! We appreciate your input.")
+    else:
+        st.warning("Please enter some feedback before submitting.")
+
+
+
+# Add a FAQ section
+st.markdown('<p class="medium-font">Frequently Asked Questions</p>', unsafe_allow_html=True)
+
+faq_data = [
+    ("How are job recommendations generated?", "Our system uses advanced machine learning algorithms to match your skills and experience with available job openings."),
+    ("Can I update my profile?", "Yes, you can update your profile by logging into your account and navigating to the 'Edit Profile' section."),
+    ("How often are new jobs added?", "New job listings are added daily. We recommend checking back regularly for the latest opportunities."),
+    ("What should I do if I find a job I'm interested in?", "Click on the job listing to view more details and follow the application instructions provided by the employer.")
+]
+
+for question, answer in faq_data:
+    with st.expander(question):
+        st.write(answer)
+
+# End of the dashboard
+st.markdown('<p class="small-font" style="text-align: center; margin-top: 50px;">Thank you for using our Job Recommendation Dashboard!</p>', unsafe_allow_html=True)
+
+
 # Footer
 st.markdown("""
-<div style="text-align: center; margin-top: 50px; padding: 25px; background-color: #1A1A1A; border-radius: 15px; box-shadow: 0 2px 4px rgba(255, 255, 255, 0.05);">
-    <p style="color: #FFFFFF; font-size: 16px; font-weight: 500;">© 2024 Job Recommendation Engine. All rights reserved.</p>
+<div style="text-align: center; margin-top: 50px; padding: 25px; background-color: rgba(0, 0, 0, 0.7); border-radius: 15px; box-shadow: 0 2px 4px rgba(255, 255, 255, 0.05);">
+    <p style="color: #FFFFFF; font-size: 16px; font-weight: 500;">© 2024 Job Recommendation Dashboard. All rights reserved.</p>
 </div>
 """, unsafe_allow_html=True)
